@@ -1,0 +1,5 @@
+python-telegram-bot==21.x
+firebase-admin
+apscheduler
+python-dotenv
+python-dateutil
