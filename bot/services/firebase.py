@@ -1,9 +1,10 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
-import os
 
-cred = credentials.Certificate("firebase_service_account.json")
-firebase_admin.initialize_app(cred)
+if not firebase_admin._apps:
+    cred = credentials.Certificate("firebase_service_account")
+    firebase_admin.initialize_app(cred)
+
 db = firestore.client()
 
 def add_event(user_id: str, event: dict):
