@@ -1,7 +1,9 @@
-from telegram.ext import Application, CommandHandler, MessageHandler, ConversationHandler, filters
-from bot.handlers.add_event import handle_add, handle_title, handle_date, handle_time, handle_cancel, TITLE, DATE, TIME
-from bot.handlers.list_events import handle_list
-from bot.handlers.delete_event import handle_delete
+from telegram.ext import Application, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
+from bot.handlers.add_event import (
+    handle_add, handle_title, handle_date, handle_time,
+    handle_remarks, handle_no_remarks, handle_cancel,
+    TITLE, DATE, TIME, REMARKS
+)
 from dotenv import load_dotenv
 import os
 
@@ -11,12 +13,12 @@ def main():
     app = Application.builder().token(os.getenv("TELEGRAM_BOT_TOKEN")).build() #creates the bot using telegram token
     add_conversation = ConversationHandler(
         entry_points=[CommandHandler("add", handle_add)],
-        states={
-            TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_title)],
-            DATE:  [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_date)],
-            TIME:  [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_time)],
-        },
-        fallbacks=[CommandHandler("cancel", handle_cancel)]
+        states={TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_title)],
+                DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_date)],
+                TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_time)],
+                REMARKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_remarks),
+                CallbackQueryHandler(handle_no_remarks, pattern="^no_remarks$")],
+        },fallbacks=[CommandHandler("cancel", handle_cancel)]
     )
     app.add_handler(add_conversation)
     app.add_handler(CommandHandler("list", handle_list))
