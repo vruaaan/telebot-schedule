@@ -8,8 +8,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 def add_event(user_id: str, event: dict):
-    db.collection("users").document(user_id)\
-      .collection("events").add(event)
+    db.collection("users").document(user_id).collection("events").add(event)
 
 def get_events(user_id: str):
     docs = db.collection("users").document(user_id)\

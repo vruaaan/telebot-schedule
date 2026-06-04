@@ -1,9 +1,10 @@
 from telegram.ext import Application, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 from bot.handlers.add_event import (
     handle_add, handle_title, handle_date, handle_time,
-    handle_remarks, handle_no_remarks, handle_cancel,
+    handle_remarks, handle_no_remarks, handle_cancel, 
     TITLE, DATE, TIME, REMARKS
 )
+from bot.handlers.list_events import handle_list
 from dotenv import load_dotenv
 import os
 
@@ -16,13 +17,12 @@ def main():
         states={TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_title)],
                 DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_date)],
                 TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_time)],
-                REMARKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_remarks),
+                REMARKS: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_remarks), #REMARKS have 2 possible handlers, 
                 CallbackQueryHandler(handle_no_remarks, pattern="^no_remarks$")],
         },fallbacks=[CommandHandler("cancel", handle_cancel)]
     )
     app.add_handler(add_conversation)
     app.add_handler(CommandHandler("list", handle_list))
-    app.add_handler(CommandHandler("delete", handle_delete))
 
     print("Bot is running...")
     app.run_polling() # keeps the bot alive
