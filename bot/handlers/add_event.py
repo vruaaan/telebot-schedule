@@ -3,12 +3,13 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup #represe
 from telegram.ext import ContextTypes, ConversationHandler, CallbackQueryHandler #ContextTypes used to type hint the context parameter in handler functions, ConversationHandler used to tell telegram that the conversation is over
 # CallbackQueryHandler listens for button presses specifically : Telegram sends a "callback query" when button pressed instead of a regular message, different handler needed
 from bot.services.firebase import add_event #fucntion to update firebase
+from bot.jobs.reminders import schedule_reminder
 from datetime import datetime #used to parse and format dates and times
 from zoneinfo import ZoneInfo
 
-#creates 3 state constants with values 0, 1, 2, 3
-TITLE, DATE, TIME, REMARKS = range(4)
-#used by ConversationHandler to know which step of the conversation the user is currently on
+#creates 3 state constants with values 0, 1, 2, 3, 4
+TITLE, DATE, TIME, REMARKS, REMINDER = range(5) #used by ConversationHandler to know which step of the conversation the user is currently on
+SGT = ZoneInfo("Asia/Singapore")
 
 async def handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE): #Step 1: User types /add, bot asks for title
     await update.message.reply_text("📝 Key in event name:") #sends prompt and waits
@@ -42,12 +43,38 @@ async def handle_no_remarks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["remarks"] = "" #saves empty string since user indicated no remarks
     return await save_event(update, context, is_callback=True) # saves event, is_callback = True to indicate it came from button press
 
+async def ask_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE, is_callback: bool):
+    # Offer reminder time options as buttons
+    keyboard = [
+        [InlineKeyboardButton("15 min before", callback_data="reminder_15"),
+         InlineKeyboardButton("30 min before", callback_data="reminder_30")],
+        [InlineKeyboardButton("1 hour before", callback_data="reminder_60"),
+         InlineKeyboardButton("1 day before", callback_data="reminder_1440")],
+        [InlineKeyboardButton("No Reminder", callback_data="reminder_none")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    msg = "🔔 Set a reminder?"
+    if is_callback:
+        await update.callback_query.message.reply_text(msg, reply_markup=reply_markup)
+    else:
+        await update.message.reply_text(msg, reply_markup=reply_markup)
+
+async def handle_reminder_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    # callback_data is like "reminder_15" or "reminder_none"
+    choice = query.data  # e.g. "reminder_15"
+    minutes = None if choice == "reminder_none" else int(choice.split("_")[1])
+    context.user_data["reminder_minutes"] = minutes
+    return await save_event(update, context, is_callback=True)
+
 async def save_event(update: Update, context: ContextTypes.DEFAULT_TYPE, is_callback: bool):
     title = context.user_data["title"]
     date = context.user_data["date"]   # e.g. "050626"
     time = context.user_data["time"]   # e.g. "1500"
     try: # trying to parse ddmmyy + HHmm
         dt = datetime.strptime(f"{date} {time}", "%d%m%y %H%M")
+        dt = dt.replace(tzinfo=SGT)
     except ValueError:
         msg = "⚠️ Couldn't parse date/time. Use ddmmyy (e.g. 050626) and HHmm (e.g. 1500)." #error message
         if is_callback:
@@ -55,25 +82,41 @@ async def save_event(update: Update, context: ContextTypes.DEFAULT_TYPE, is_call
         else:
             await update.message.reply_text(msg)
         return ConversationHandler.END
-    
+    reminder_minutes = context.user_data.get("reminder_minutes")
     #creating payload to send in 
     event = {"title": title, 
              "date": dt.strftime("%Y-%m-%d"),      # "2026-06-05" — good for sorting/filtering
              "time": dt.strftime("%H:%M"),          # "15:00"
-             "created_at": datetime.now(ZoneInfo("Singapore")).isoformat(),
-             "remarks": context.user_data.get("remarks", "")}
+             "created_at": datetime.now(SGT).isoformat(),
+             "remarks": context.user_data.get("remarks", ""),
+             "reminder_minutes": reminder_minutes  # None if no reminder
+            }
     
     user_id = str(update.callback_query.from_user.id if is_callback 
                   else update.effective_user.id)
-    
-    add_event(user_id, event) #sending to firestore
+    event_id = add_event(user_id, event)
+
+    # Schedule the reminder job if user wanted one
+    if reminder_minutes is not None:
+        schedule_reminder(
+            app=context.application,
+            user_id=user_id,
+            event_id=event_id,
+            title=title,
+            event_dt=dt,
+            minutes_before=reminder_minutes
+        )
+
 
     remarks_line = f"📝 {event['remarks']}\n" if event["remarks"] else ""
-    confirmation = ( #building return message to user
+    reminder_line = f"🔔 Reminder set {reminder_minutes} min before\n" if reminder_minutes else ""
+    confirmation = (
         f"✅ Scheduled!\n"
         f"📌 {title}\n"
         f"📅 {dt.strftime('%d %b %Y, %H:%M')}\n"
-        f"{remarks_line}")
+        f"{remarks_line}"
+        f"{reminder_line}"
+    )
     if is_callback:
         await update.callback_query.message.reply_text(confirmation) #sends return message back 
     else:
