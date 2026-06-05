@@ -3,13 +3,11 @@ from telegram.ext import ContextTypes
 from bot.services.firebase import delete_event, get_event
 
 async def handle_delete_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Shows a confirmation prompt before deleting"""
     query = update.callback_query
     await query.answer()
 
-    event_id = query.data.split("_", 1)[1]  # extract from "delete_{id}"
-    user_id = str(query.from_user.id)
-    event = get_event(user_id, event_id)
+    _, month, event_id = query.data.split("|")  # "delete|June_2026|aB3xK9"
+    event = get_event(month, event_id)
 
     if not event:
         await query.edit_message_text("⚠️ Event not found.")
@@ -17,8 +15,8 @@ async def handle_delete_confirm(update: Update, context: ContextTypes.DEFAULT_TY
 
     keyboard = [
         [
-            InlineKeyboardButton("✅ Yes, delete", callback_data=f"confirmdelete_{event_id}"),
-            InlineKeyboardButton("❌ No, keep it", callback_data=f"close_{event_id}")
+            InlineKeyboardButton("✅ Yes, delete", callback_data=f"confirmdelete|{month}|{event_id}"),
+            InlineKeyboardButton("❌ No, keep it", callback_data=f"close|{month}|{event_id}")
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -28,17 +26,15 @@ async def handle_delete_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 async def handle_delete_execute(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Actually deletes after confirmation"""
     query = update.callback_query
     await query.answer()
 
-    event_id = query.data.split("_", 1)[1]  # extract from "confirmdelete_{id}"
-    user_id = str(query.from_user.id)
+    _, month, event_id = query.data.split("|")  # "confirmdelete|June_2026|aB3xK9"
 
     # Cancel the reminder job if it exists
     current_jobs = context.application.job_queue.get_jobs_by_name(f"reminder_{event_id}")
     for job in current_jobs:
         job.schedule_removal()
 
-    delete_event(user_id, event_id)
+    delete_event(month, event_id)
     await query.edit_message_text("🗑 Event deleted.")

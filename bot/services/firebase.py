@@ -17,38 +17,36 @@ db = firestore.client() # to access the database
 "reminder_minutes": reminder_minutes  # None if no reminder}
 '''
 
-def add_event(payload: dict): #redone
-    date_str = payload["date"]
-    month = date_str.datetime.strptime(date_str, "%Y-%m-%d").strftime("%B")
-    _, doc_ref = db.collection(month).add(payload)
-    return doc_ref.id  
+'''structure of database:
+month -> event id -> event details
+'''
 
-def get_events(user_id: str):
-    docs = db.collection("users").document(user_id)\
-             .collection("events")\
-             .order_by("date").order_by("time").stream()
+def add_event(payload: dict): #redone
+    date_str = payload["date"]  # "2026-06-05"
+    month = datetime.strptime(date_str, "%Y-%m-%d").strftime("%B_%Y")  # "June_2026"
+    _, doc_ref = db.collection(month).add(payload)
+    return doc_ref.id
+
+def get_events(month: str): #get data by month
+    docs = db.collection(month).order_by("date").order_by("time").stream()
     return [doc.to_dict() | {"id": doc.id} for doc in docs]
 
-def get_events_for_week(user_id: str, monday: str, sunday: str):
-    # monday and sunday are "YYYY-MM-DD" strings
-    docs = db.collection("users").document(user_id)\
-             .collection("events")\
+def get_events_for_week(monday: str, sunday: str): # monday and sunday are "YYYY-MM-DD" strings
+    month = datetime.strptime(monday, "%Y-%m-%d").strftime("%B_%Y")
+    docs = db.collection(month)\
              .where("date", ">=", monday)\
              .where("date", "<=", sunday)\
              .order_by("date").order_by("time").stream()
     return [doc.to_dict() | {"id": doc.id} for doc in docs]
 
-def delete_event(user_id: str, event_id: str):
-    db.collection("users").document(user_id)\
-      .collection("events").document(event_id).delete()
+def delete_event(month: str, event_id: str):
+    db.collection(month).document(event_id).delete()
 
-def get_event(user_id: str, event_id: str):
-    doc = db.collection("users").document(user_id)\
-            .collection("events").document(event_id).get()
+def get_event(month: str, event_id: str):
+    doc = db.collection(month).document(event_id).get()
     if doc.exists:
         return doc.to_dict() | {"id": doc.id}
     return None
 
-def update_event(user_id: str, event_id: str, updates: dict):
-    db.collection("users").document(user_id)\
-      .collection("events").document(event_id).update(updates)
+def update_event(month: str, event_id: str, updates: dict):
+    db.collection(month).document(event_id).update(updates)

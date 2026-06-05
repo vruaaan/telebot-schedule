@@ -1,15 +1,18 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CallbackQueryHandler
 from bot.services.firebase import get_events
+from bot.services.firebase import get_events
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-async def handle_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.effective_user.id)
-    events = get_events(user_id)
+SGT = ZoneInfo("Asia/Singapore")
 
+async def handle_list(update, context):
+    current_month = datetime.now(SGT).strftime("%B_%Y")  # "June_2026"
+    events = get_events(current_month)
     if not events:
         await update.message.reply_text("📭 You have no upcoming events.")
         return
-
     for e in events:
         # Each event gets its own message with a "More" button
         text = f"📌 {e['title']}\n📅 {e['date']} {e['time']}"
