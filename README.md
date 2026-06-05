@@ -1,4 +1,4 @@
-# 📅 Telegram Scheduler Bot
+# Telegram Scheduler Bot
 
 A personal Telegram bot for scheduling and managing events, built with Python and Firebase Firestore. Events are stored by month with support for reminders, weekly views, and inline event management.
 
