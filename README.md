@@ -1,6 +1,6 @@
 # Telegram Scheduler Bot
 
-A personal Telegram bot for scheduling and managing events, built with Python and Firebase Firestore. Events are stored by month with support for reminders, weekly views, and inline event management.
+A Telegram bot for scheduling and managing events, built with Python and Firebase Firestore. Each user's events are stored under their own Telegram user ID, so multiple users can share the same bot without seeing each other's data. Supports reminders, weekly views, and inline event management.
 
 ---
 
@@ -46,22 +46,25 @@ telegram-scheduler-bot/
 
 ## Firestore Structure
 
-Events are stored by month at the root level — no user layer since this is a personal bot.
+Events are scoped per user using the numeric Telegram user ID (stable, unlike `@usernames` which can change).
 
 ```
-June_2026/                  ← collection per month
-  {event_id}/               ← auto-generated document
-    title:            "Team Meeting"
-    date:             "2026-06-05"
-    time:             "15:00"
-    remarks:          "Bring laptop"
-    reminder_minutes: 30
-    created_at:       "2026-06-04T08:00:00+08:00"
-
-July_2026/
-  {event_id}/
-    ...
+users/
+  {telegram_user_id}/         ← document per user (numeric ID, e.g. "123456789")
+    June_2026/                ← subcollection per month
+      {event_id}/             ← auto-generated document
+        title:            "Team Meeting"
+        date:             "2026-06-05"
+        time:             "15:00"
+        remarks:          "Bring laptop"
+        reminder_minutes: 30
+        created_at:       "2026-06-04T08:00:00+08:00"
+    July_2026/
+      {event_id}/
+        ...
 ```
+
+Each user can only read and write their own events — there is no cross-user data access.
 
 ---
 

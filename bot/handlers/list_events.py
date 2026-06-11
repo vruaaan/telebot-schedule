@@ -1,6 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes, CallbackQueryHandler
-from bot.services.firebase import get_events
+from telegram.ext import ContextTypes
 from bot.services.firebase import get_events
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -8,42 +7,40 @@ from zoneinfo import ZoneInfo
 SGT = ZoneInfo("Asia/Singapore")
 
 async def handle_list(update, context):
-    current_month = datetime.now(SGT).strftime("%B_%Y")  # "June_2026"
-    events = get_events(current_month)
+    user_id = str(update.effective_user.id)
+    current_month = datetime.now(SGT).strftime("%B_%Y")
+    events = get_events(user_id, current_month)
     if not events:
         await update.message.reply_text("📭 You have no upcoming events.")
         return
     for e in events:
-        # Each event gets its own message with a "More" button
+        month = datetime.strptime(e['date'], "%Y-%m-%d").strftime("%B_%Y")
         text = f"📌 {e['title']}\n📅 {e['date']} {e['time']}"
-        keyboard = [[InlineKeyboardButton("More ▼", callback_data=f"more_{e['id']}")]]
+        keyboard = [[InlineKeyboardButton("More ▼", callback_data=f"more|{month}|{e['id']}")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(text, reply_markup=reply_markup)
 
 async def handle_more(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Expands an event to show delete and edit buttons"""
     query = update.callback_query
     await query.answer()
 
-    event_id = query.data.split("_", 1)[1]  # extract ID from "more_{id}"
+    _, month, event_id = query.data.split("|")
 
     keyboard = [
         [
-            InlineKeyboardButton("🗑 Delete", callback_data=f"delete_{event_id}"),
-            InlineKeyboardButton("✏️ Edit", callback_data=f"edit_{event_id}"),
+            InlineKeyboardButton("🗑 Delete", callback_data=f"delete|{month}|{event_id}"),
+            InlineKeyboardButton("✏️ Edit", callback_data=f"edit|{month}|{event_id}"),
         ],
-        [InlineKeyboardButton("▲ Close", callback_data=f"close_{event_id}")]
+        [InlineKeyboardButton("▲ Close", callback_data=f"close|{month}|{event_id}")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_reply_markup(reply_markup=reply_markup)
-    # edit_message_reply_markup replaces the existing buttons without sending a new message
 
 async def handle_close(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Collapses back to just the More button"""
     query = update.callback_query
     await query.answer()
 
-    event_id = query.data.split("_", 1)[1]
-    keyboard = [[InlineKeyboardButton("More ▼", callback_data=f"more_{event_id}")]]
+    _, month, event_id = query.data.split("|")
+    keyboard = [[InlineKeyboardButton("More ▼", callback_data=f"more|{month}|{event_id}")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await query.edit_message_reply_markup(reply_markup=reply_markup)

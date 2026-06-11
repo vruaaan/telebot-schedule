@@ -92,9 +92,9 @@ async def save_event(update: Update, context: ContextTypes.DEFAULT_TYPE, is_call
              "reminder_minutes": reminder_minutes  # None if no reminder
             }
     
-    user_id = str(update.callback_query.from_user.id if is_callback 
+    user_id = str(update.callback_query.from_user.id if is_callback
                   else update.effective_user.id)
-    event_id = add_event(event)
+    event_id = add_event(user_id, event)
 
     # Schedule the reminder job if user wanted one
     if reminder_minutes is not None:

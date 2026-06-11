@@ -6,8 +6,9 @@ async def handle_delete_confirm(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
 
+    user_id = str(query.from_user.id)
     _, month, event_id = query.data.split("|")  # "delete|June_2026|aB3xK9"
-    event = get_event(month, event_id)
+    event = get_event(user_id, month, event_id)
 
     if not event:
         await query.edit_message_text("⚠️ Event not found.")
@@ -29,6 +30,7 @@ async def handle_delete_execute(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
 
+    user_id = str(query.from_user.id)
     _, month, event_id = query.data.split("|")  # "confirmdelete|June_2026|aB3xK9"
 
     # Cancel the reminder job if it exists
@@ -36,5 +38,5 @@ async def handle_delete_execute(update: Update, context: ContextTypes.DEFAULT_TY
     for job in current_jobs:
         job.schedule_removal()
 
-    delete_event(month, event_id)
+    delete_event(user_id, month, event_id)
     await query.edit_message_text("🗑 Event deleted.")
